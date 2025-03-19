@@ -1,13 +1,14 @@
 import sys
 import time
 import asyncio
-from email_processor.email_client import *
-from email_processor.email_utils import *
+from email_processor.email_client import get_access_token, fetch_unread_emails, forward_email, mark_email_as_read, force_mark_emails_as_read
+from email_processor.email_utils import generate_llm_text
 #from apex_llm.apex import apex_categorise, apex_action_check
 from config import EMAIL_ACCOUNTS, EMAIL_FETCH_INTERVAL, DEFAULT_EMAIL_ACCOUNT
 #from apex_llm.apex_logging import create_log, add_to_log, update_acknowledged_status, insert_log_to_db, getDetailsByInteractionId
 import datetime
-import base64
+import json
+import os
 #import apex_llm.apex as apex
 
 processed_but_unread = set()
@@ -16,7 +17,7 @@ BATCH_SIZE = 3  # Process 3 emails at a time - Cap for MS Graph
 
 async def process_email(access_token, account, email_data, message_id):
     """
-    Process a single email: extract all information including attachment text,
+    Process a single email: extract all information including attachment text using Document Intelligence,
     categorize it, forward it, mark as read, and log it.
     """
     
@@ -27,33 +28,32 @@ async def process_email(access_token, account, email_data, message_id):
     #add_to_log("start_time", start_time, log)
     
     try:
-        # Generate the complete LLM text including email details and attachment content
+        # Generate the complete LLM text (JSON) including email details and attachment content
         llm_text = generate_llm_text(email_data)
-        print(llm_text)
         
-        # print(f"Email Details:\n"
-        #       f"From: {email_data['from']}\n"
-        #       f"To: {email_data['to']}\n"
-        #       f"Subject: {email_data['subject']}\n"
-        #       f"Attachments: {len(email_data.get('processed_attachments', []))}")
+        # Parse the JSON to get summary information for logging
+        llm_data = json.loads(llm_text)
         
-        # Here you can now use the llm_text string with your LLM model
-        # The text includes all email details and extracted text from attachments
+        print(f"Email Details:\n"
+              f"From: {llm_data['email_metadata']['from']}\n"
+              f"To: {llm_data['email_metadata']['to']}\n"
+              f"Subject: {llm_data['email_metadata']['subject']}\n"
+              f"Attachments: {len(llm_data['attachments'])}")
         
-        # For demonstration purposes, let's print the attachment information
-        attachments = email_data.get('processed_attachments', [])
-        if attachments:
-            print(f"Found {len(attachments)} attachments:")
-            for i, attachment in enumerate(attachments, 1):
-                print(f"  Attachment {i}: {attachment['name']} ({attachment['content_type']})")
-                if attachment['extracted_text']:
-                    print(f"  Extracted {len(attachment['extracted_text'])} characters of text")
-                else:
-                    print("  No text extracted")
-        else:
-            print("No attachments found")
+        # Print attachment information for debugging
+        for i, attachment in enumerate(llm_data['attachments'], 1):
+            print(f"  Attachment {i}: {attachment['name']} ({attachment['type']})")
+            if 'error' in attachment:
+                print(f"  Error: {attachment['error']}")
+            else:
+                print(f"  Extracted {len(attachment['content'])} characters of text")
+                print(f"  Pages: {attachment.get('page_count', 1)}")
+                print(f"  Has handwritten content: {attachment.get('has_handwritten_content', False)}")
         
-        # Uncomment the following when you're ready to integrate with your existing code
+        # Here, llm_text is a JSON string that can be used with your LLM model
+        # The JSON includes all email details and extracted text from attachments
+        
+        # Uncomment the following when you're ready to integrate with your existing APEX processing
         """
         # Use the llm_text with your APEX integration
         apex_interactionID = await apex.apex_get_iteractionID(llm_text)
@@ -103,7 +103,7 @@ async def process_email(access_token, account, email_data, message_id):
             add_to_log("sts_eml_forward", "failed", log)
         """
         
-        # For testing purposes, we might want to mark the email as read
+        # For testing purposes
         # Uncomment the following line when testing
         # await mark_email_as_read(access_token, account, message_id)
         
