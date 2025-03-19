@@ -3,3 +3,6 @@ aiohttp
 openai
 msal
 html2text
+PyMuPdf
+Pillow
+pytesseract
