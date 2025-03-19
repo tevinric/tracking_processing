@@ -18,8 +18,8 @@ AUTHORITY = f'https://login.microsoftonline.com/{TENANT_ID}'
 SCOPE = ['https://graph.microsoft.com/.default']
 
 # Azure Document Intelligence Configuration
-AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-document-intelligence-resource.cognitiveservices.azure.com/
-AZURE_DOCUMENT_INTELLIGENCE_KEY=your_document_intelligence_api_key
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=os.environ.get('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT')
+AZURE_DOCUMENT_INTELLIGENCE_KEY=os.environ.get('AZURE_DOCUMENT_INTELLIGENCE_KEY')
 
 # EMAIL CONFIGURATIONS
 EMAIL_ACCOUNTS = [os.environ.get('EMAIL_ACCOUNT')]

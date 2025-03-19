@@ -4,5 +4,3 @@ openai
 msal
 html2text
 azure-ai-documentintelligence
-azure-core
-tempfile
