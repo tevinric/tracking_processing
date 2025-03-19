@@ -10,9 +10,17 @@ from pathlib import Path
 
 # For Azure AI Document Intelligence
 from azure.core.credentials import AzureKeyCredential
-from azure.ai.documentintelligence import DocumentIntelligenceClient
-from azure.ai.documentintelligence.models import AnalyzeResult
-from azure.ai.documentintelligence import DocumentAnalysisClient
+# Import the correct Document Intelligence client
+from azure.core.credentials import AzureKeyCredential
+try:
+    # Try newer SDK structure
+    from azure.ai.documentintelligence import DocumentIntelligenceClient
+    from azure.ai.formrecognizer import DocumentAnalysisClient
+except ImportError:
+    # Fall back to older SDK structure
+    from azure.ai.formrecognizer import DocumentAnalysisClient
+    # Define alias for compatibility
+    DocumentIntelligenceClient = DocumentAnalysisClient
 from azure.core.exceptions import HttpResponseError
 
 # EXTRACT BODY FROM EMAIL
