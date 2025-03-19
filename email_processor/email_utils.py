@@ -208,15 +208,29 @@ def group_lines_into_paragraphs(lines):
     
     return paragraphs
 
-# Process attachment based on its content type
+# Process attachment based on its content type or file extension
 async def process_attachment(attachment):
     """Process an attachment and extract text using Document Intelligence."""
-    attachment_name = attachment.get('name', '')
+    attachment_name = attachment.get('name', '').lower()
     content_type = attachment.get('contentType', '').lower()
     attachment_content = attachment.get('contentBytes', '')
     
-    # Check if this is a content type we can process
-    if any(img_type in content_type for img_type in ['pdf', 'jpeg', 'jpg', 'png', 'gif', 'bmp', 'tiff']):
+    # Check file extension for common document formats
+    is_supported_ext = any(attachment_name.endswith(ext) for ext in [
+        '.pdf', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif'
+    ])
+    
+    # Check content type for supported formats
+    is_supported_mime = any(mime_type in content_type for mime_type in [
+        'pdf', 'jpeg', 'jpg', 'png', 'gif', 'bmp', 'tiff', 'octet-stream'
+    ])
+    
+    # Process if either the extension or MIME type suggests a supported document
+    if is_supported_ext or is_supported_mime:
+        # If it's octet-stream, try to determine if it's actually a PDF or image
+        if 'octet-stream' in content_type and is_supported_ext:
+            print(f"Found octet-stream with supported extension: {attachment_name}")
+        
         # Extract text using Document Intelligence
         extracted_data = await extract_text_with_document_intelligence(attachment_content, attachment_name)
         
