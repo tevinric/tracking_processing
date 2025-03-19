@@ -30,6 +30,7 @@ async def process_email(access_token, account, email_data, message_id):
     try:
         # Generate the complete LLM text (JSON) including email details and attachment content
         llm_text = generate_llm_text(email_data)
+        print(f"Generated LLM text: {llm_text}")
         
         # Parse the JSON to get summary information for logging
         llm_data = json.loads(llm_text)
