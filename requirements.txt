@@ -3,6 +3,6 @@ aiohttp
 openai
 msal
 html2text
-PyMuPdf
-Pillow
-pytesseract
+azure-ai-documentintelligence
+azure-core
+tempfile
