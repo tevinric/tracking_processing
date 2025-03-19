@@ -1,8 +1,8 @@
 import sys
 import time
 import asyncio
-from email_processor.email_client import get_access_token, fetch_unread_emails, forward_email, mark_email_as_read, force_mark_emails_as_read
-from email_processor.email_utils import generate_llm_text
+from email_processor.email_client import *
+from email_processor.email_utils import *
 #from apex_llm.apex import apex_categorise, apex_action_check
 from config import EMAIL_ACCOUNTS, EMAIL_FETCH_INTERVAL, DEFAULT_EMAIL_ACCOUNT
 #from apex_llm.apex_logging import create_log, add_to_log, update_acknowledged_status, insert_log_to_db, getDetailsByInteractionId
@@ -29,12 +29,13 @@ async def process_email(access_token, account, email_data, message_id):
     try:
         # Generate the complete LLM text including email details and attachment content
         llm_text = generate_llm_text(email_data)
+        print(llm_text)
         
-        print(f"Email Details:\n"
-              f"From: {email_data['from']}\n"
-              f"To: {email_data['to']}\n"
-              f"Subject: {email_data['subject']}\n"
-              f"Attachments: {len(email_data.get('processed_attachments', []))}")
+        # print(f"Email Details:\n"
+        #       f"From: {email_data['from']}\n"
+        #       f"To: {email_data['to']}\n"
+        #       f"Subject: {email_data['subject']}\n"
+        #       f"Attachments: {len(email_data.get('processed_attachments', []))}")
         
         # Here you can now use the llm_text string with your LLM model
         # The text includes all email details and extracted text from attachments
