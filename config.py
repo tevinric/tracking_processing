@@ -17,6 +17,10 @@ MS_CLIENT_SECRET = os.environ.get('MS_CLIENT_SECRET')
 AUTHORITY = f'https://login.microsoftonline.com/{TENANT_ID}'
 SCOPE = ['https://graph.microsoft.com/.default']
 
+# Azure Document Intelligence Configuration
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-document-intelligence-resource.cognitiveservices.azure.com/
+AZURE_DOCUMENT_INTELLIGENCE_KEY=your_document_intelligence_api_key
+
 # EMAIL CONFIGURATIONS
 EMAIL_ACCOUNTS = [os.environ.get('EMAIL_ACCOUNT')]
 DEFAULT_EMAIL_ACCOUNT = 'tevinri@tihsa.co.za'
