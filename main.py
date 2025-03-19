@@ -2,6 +2,7 @@ import sys
 import time
 import asyncio
 from email_processor.email_client import get_access_token, fetch_unread_emails, forward_email, mark_email_as_read, force_mark_emails_as_read
+from email_processor.email_utils import generate_llm_text
 #from apex_llm.apex import apex_categorise, apex_action_check
 from config import EMAIL_ACCOUNTS, EMAIL_FETCH_INTERVAL, DEFAULT_EMAIL_ACCOUNT
 #from apex_llm.apex_logging import create_log, add_to_log, update_acknowledged_status, insert_log_to_db, getDetailsByInteractionId
@@ -9,51 +10,57 @@ import datetime
 import base64
 #import apex_llm.apex as apex
 
-
 processed_but_unread = set()
 
-BATCH_SIZE =3  # Process 3 emails at a time - Cap for MS Graph
+BATCH_SIZE = 3  # Process 3 emails at a time - Cap for MS Graph
 
 async def process_email(access_token, account, email_data, message_id):
     """
-    Process a single email: categorize it, forward it, mark as read, and log it.
-    Ensures single logging per email processed.
+    Process a single email: extract all information including attachment text,
+    categorize it, forward it, mark as read, and log it.
     """
     
-    print(email_data)
+    print(f"Processing email with subject: {email_data['subject']}")
     
     start_time = datetime.datetime.now()
     #log = create_log(email_data)
     #add_to_log("start_time", start_time, log)
-
-    # try:
-        
-        # if await check_email_processed(email_data['internet_message_id']):
-        #     print(f"Email {email_data['internet_message_id']} has already been processed. Skipping.")
-        #     # Mark the email as read if it was already found in the database
-        #     await mark_email_as_read(access_token, account, message_id)
-        #     return
-        
-        # Concatenate email data for APEX processing
-    llm_text = " ".join([str(value) for key, value in email_data.items() if key != 'email_object'])
     
-    #await mark_email_as_read(access_token, account, message_id)
-     
     try:
+        # Generate the complete LLM text including email details and attachment content
+        llm_text = generate_llm_text(email_data)
         
-        # step 1 - get the xrsids from the email
-        ## Get the email text 
-        llm_text = " ".join([str(value) for key, value in email_data.items() if key != 'email_object'])
+        print(f"Email Details:\n"
+              f"From: {email_data['from']}\n"
+              f"To: {email_data['to']}\n"
+              f"Subject: {email_data['subject']}\n"
+              f"Attachments: {len(email_data.get('processed_attachments', []))}")
         
-        # Get the xrsids from the email
-        apex_interactionID = await apex.apex_get_iteractionID(str(llm_text))
+        # Here you can now use the llm_text string with your LLM model
+        # The text includes all email details and extracted text from attachments
+        
+        # For demonstration purposes, let's print the attachment information
+        attachments = email_data.get('processed_attachments', [])
+        if attachments:
+            print(f"Found {len(attachments)} attachments:")
+            for i, attachment in enumerate(attachments, 1):
+                print(f"  Attachment {i}: {attachment['name']} ({attachment['content_type']})")
+                if attachment['extracted_text']:
+                    print(f"  Extracted {len(attachment['extracted_text'])} characters of text")
+                else:
+                    print("  No text extracted")
+        else:
+            print("No attachments found")
+        
+        # Uncomment the following when you're ready to integrate with your existing code
+        """
+        # Use the llm_text with your APEX integration
+        apex_interactionID = await apex.apex_get_iteractionID(llm_text)
                
         # Assuming the base64 encoded text is in apex_xrsids['message']['xrsid1']
         interactionID = str(apex_interactionID['message']['internalTicketReference'])
 
-
-        # Use the interaction ID to query the customer email address from the original email - This will be used as the FORWARD_TO address in the forwarded email
-        
+        # Use the interaction ID to query the customer email address from the original email
         customer_email = await getDetailsByInteractionId(interactionID)
                 
         if customer_email is not None:
@@ -71,68 +78,50 @@ async def process_email(access_token, account, email_data, message_id):
         add_to_log("interaction_id", interactionID, log)
         add_to_log("apex_cost_usd", apex_post_cost_usd, log)
     
-        apex_post_processing_agent_compilation = True
+        # Forward email
+        forward_success = await forward_email(
+                access_token, 
+                account, 
+                message_id, 
+                reply_to_address, 
+                FORWARD_TO, 
+                email_data, 
+                "AI Forwarded message"
+            ) 
         
-        # If successful in compiling the apex_post_processing_agent details then move onto forwarding the email
-        if apex_post_processing_agent_compilation == True:
-            # Forward email
-            forward_success = await forward_email(
-                    access_token, 
-                    account, 
-                    message_id, 
-                    reply_to_address, 
-                    FORWARD_TO, 
-                    email_data, 
-                    "AI Forwarded message"
-                ) 
-            
-            if forward_success:
-                add_to_log("sts_eml_forward", "success", log)
-                # Mark as read only if forwarding was successful
-                marked_as_read = await mark_email_as_read(access_token, account, message_id)
-                                
-                if marked_as_read:
-                    interaction_id = interactionID
-                    # First update the acknowledged field and the acknowledged timestamp in the APEX log by searching the interaction_id and updating
-                    update_apex_log = await update_acknowledged_status(interaction_id)
-                    
-
-            else:
-                add_to_log("sts_eml_forward", "failed", log)
-                # Pass having the email marked as read - This will keep it in the mailbin
-        
+        if forward_success:
+            add_to_log("sts_eml_forward", "success", log)
+            # Mark as read only if forwarding was successful
+            marked_as_read = await mark_email_as_read(access_token, account, message_id)
+                            
+            if marked_as_read:
+                interaction_id = interactionID
+                # First update the acknowledged field and the acknowledged timestamp in the APEX log
+                update_apex_log = await update_acknowledged_status(interaction_id)
         else:
-            add_to_log("eml_to", "Error", log)
-            add_to_log("eml_cc", "Error", log)
-            add_to_log("eml_frm", "Error", log)
-            add_to_log("interaction_id", "Error", log)
-            add_to_log("apex_cost_usd", "Error", log)
             add_to_log("sts_eml_forward", "failed", log)
-
-                     
+        """
+        
+        # For testing purposes, we might want to mark the email as read
+        # Uncomment the following line when testing
+        # await mark_email_as_read(access_token, account, message_id)
         
     except Exception as e:
-            add_to_log("eml_to", "Error", log)
-            add_to_log("eml_cc", "Error", log)
-            add_to_log("eml_frm", "Error", log)
-            add_to_log("interaction_id", "Error", log)
-            add_to_log("apex_cost_usd", "Error", log)
-            add_to_log("sts_eml_forward", "failed", log)
-            
-            print(f"There was an error when processing the post mail - {e}")
-
+        # add_to_log error handling code here
+        print(f"Error processing email: {str(e)}")
          
     end_time = datetime.datetime.now()
-    add_to_log("end_time", end_time, log)
+    # add_to_log("end_time", end_time, log)
 
     tat = (end_time - start_time).total_seconds()
-    add_to_log("tat", tat, log)
+    # add_to_log("tat", tat, log)
+    print(f"Email processing completed in {tat:.2f} seconds")
 
-    # Log the log to the post_logs db for APEX_POST_PROCESSING_AGENT
-    try:
-        await insert_log_to_db(log)
-    except Exception as e:
-        print("Failed to log record to DB due to error: ", e)
+    # Uncomment when ready to log to database
+    # try:
+    #     await insert_log_to_db(log)
+    # except Exception as e:
+    #     print("Failed to log record to DB due to error: ", e)
     
 async def process_batch():
     
@@ -180,4 +169,3 @@ def trigger_email_triage():
 
 if __name__ == '__main__':
     trigger_email_triage()
-    
