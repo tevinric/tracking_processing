@@ -11,7 +11,8 @@ from pathlib import Path
 # For Azure AI Document Intelligence
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.documentintelligence import DocumentIntelligenceClient
-from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
+from azure.ai.documentintelligence.models import AnalyzeResult
+from azure.ai.documentintelligence import DocumentAnalysisClient
 from azure.core.exceptions import HttpResponseError
 
 # EXTRACT BODY FROM EMAIL
@@ -55,7 +56,7 @@ async def extract_text_with_document_intelligence(attachment_content, attachment
     
     # Initialize the Document Intelligence client
     try:
-        document_client = DocumentIntelligenceClient(
+        document_client = DocumentAnalysisClient(
             endpoint=endpoint, 
             credential=AzureKeyCredential(api_key)
         )
@@ -86,9 +87,10 @@ async def extract_text_with_document_intelligence(attachment_content, attachment
         
         # Analyze the document
         with open(temp_file_path, "rb") as f:
+            document_content = f.read()
             poller = document_client.begin_analyze_document(
                 "prebuilt-read",
-                AnalyzeDocumentRequest(document=f)
+                document_content
             )
             
             # Wait for the operation to complete
