@@ -4,3 +4,5 @@ openai
 msal
 html2text
 azure-ai-documentintelligence
+sentence-transformers
+scikit-learn
